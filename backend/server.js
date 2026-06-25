@@ -6,69 +6,130 @@ const NodeMediaServer = require('node-media-server');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const bcrypt = require('bcrypt');
 const path = require('path');
 const fs = require('fs');
-const FFMPEG_PATH = process.env.FFMPEG_PATH || (process.platform === 'win32' ? 'ffmpeg' : '/usr/bin/ffmpeg');
+const os = require('os');
 
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || '*';
+const SESSION_SECRET = process.env.SESSION_SECRET;
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const ADMIN_PASS_HASH = process.env.ADMIN_PASS_HASH;
+const STREAM_KEY = process.env.STREAM_KEY || 'mystream';
+const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3000', 10);
+const RTMP_PORT = parseInt(process.env.RTMP_PORT || '1935', 10);
+const FFMPEG_PATH = process.env.FFMPEG_PATH || (process.platform === 'win32' ? 'ffmpeg' : '/usr/bin/ffmpeg');
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || (NODE_ENV === 'production' ? undefined : 'http://localhost:3000');
+
+if (!SESSION_SECRET || SESSION_SECRET.length < 64) {
+  console.error('FATAL: SESSION_SECRET environment variable is required and must be at least 64 characters long.');
+  process.exit(1);
+}
+
+if (!ADMIN_PASS_HASH) {
+  console.error('FATAL: ADMIN_PASS_HASH environment variable is required. Run: node generate-hash.js <your-password>');
+  process.exit(1);
+}
+
+if (NODE_ENV === 'production' && !FRONTEND_ORIGIN) {
+  console.error('FATAL: FRONTEND_ORIGIN environment variable is required in production.');
+  process.exit(1);
+}
+
+const HLS_DIR = path.join(require('os').tmpdir(), 'live-stream-hls');
+if (!fs.existsSync(HLS_DIR)) fs.mkdirSync(HLS_DIR, { recursive: true });
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: FRONTEND_ORIGIN === '*' ? true : FRONTEND_ORIGIN,
+    methods: ['GET', 'POST'],
     credentials: true
   }
 });
 
-const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'Admin@123';
-const STREAM_KEY = process.env.STREAM_KEY || 'mystream';
-const HLS_DIR = process.env.HLS_DIR || path.join(require('os').tmpdir(), 'live-stream-hls', 'live');
-const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3000', 10);
-const RTMP_PORT = parseInt(process.env.RTMP_PORT || '1935', 10);
-
-if (!fs.existsSync(HLS_DIR)) {
-  fs.mkdirSync(HLS_DIR, { recursive: true });
-}
-
-const sessionSecret = process.env.SESSION_SECRET || 'change-this-secret-to-a-random-string-in-production';
-const isProd = process.env.NODE_ENV === 'production';
+const isProd = NODE_ENV === 'production';
 app.set('trust proxy', 1);
-app.use(session({
-  secret: sessionSecret,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: 24 * 60 * 60 * 1000,
-    sameSite: isProd ? 'none' : false,
-    secure: isProd
-  }
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      mediaSrc: ["'self'", "blob:"],
+      connectSrc: ["'self'", FRONTEND_ORIGIN || '*', "cdn.socket.io"],
+      workerSrc: ["'self'", "blob:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
 }));
-app.use(express.json());
+app.use((req, res, next) => {
+  res.setHeader('X-Powered-By', 'Express');
+  next();
+});
 
 app.use(cors({
   origin: FRONTEND_ORIGIN === '*' ? true : FRONTEND_ORIGIN,
   credentials: true
 }));
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-const frontendDir = path.join(__dirname, '..', 'frontend');
-if (fs.existsSync(frontendDir)) {
-  app.use(express.static(frontendDir, {
-    setHeaders: (res) => {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-  }));
-}
-
-app.use('/hls', express.static(HLS_DIR, {
-  setHeaders: (res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-  }
+app.use(session({
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    sameSite: 'none',
+    secure: isProd
+  },
+  name: 'sessionId'
 }));
+
+const sanitizeString = (str) => {
+  if (typeof str !== 'string') return '';
+  return str.replace(/[\x00-\x1F\x7F]/g, '').trim();
+};
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    return (forwarded ? forwarded.split(',')[0].trim() : req.ip);
+  },
+  message: { success: false, error: 'Too many login attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  keyGenerator: (req) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    return (forwarded ? forwarded.split(',')[0].trim() : req.ip);
+  },
+  message: { success: false, error: 'Too many requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+function requireAuth(req, res, next) {
+  if (req.session && req.session.authenticated === true) {
+    return next();
+  }
+  res.status(401).json({ success: false, error: 'Unauthorized' });
+}
 
 const nms = new NodeMediaServer({
   rtmp: {
@@ -105,7 +166,28 @@ const nms = new NodeMediaServer({
 
 let isLive = false;
 let viewerCount = 0;
-const HLS_STREAM_DIR = path.join(HLS_DIR, STREAM_KEY);
+const HLS_STREAM_DIR = path.join(HLS_DIR, 'live', STREAM_KEY);
+
+nms.on('prePublish', (id, streamPath, args) => {
+  const pathParts = streamPath.split('/');
+  const streamKey = pathParts[pathParts.length - 1];
+  if (streamKey !== STREAM_KEY) {
+    console.log(`[RTMP] Rejected invalid stream key attempt: ${streamKey}`);
+    throw new Error('Invalid stream key');
+  }
+});
+
+nms.on('postPublish', (id, streamPath, args) => {
+  console.log(`[RTMP] Stream started: ${streamPath}`);
+  isLive = true;
+  io.emit('streamStatus', { isLive: true });
+});
+
+nms.on('donePublish', (id, streamPath, args) => {
+  console.log(`[RTMP] Stream ended: ${streamPath}`);
+  isLive = false;
+  io.emit('streamStatus', { isLive: false });
+});
 
 function cleanupHls() {
   try {
@@ -114,8 +196,8 @@ function cleanupHls() {
       .filter(f => f.endsWith('.ts'))
       .map(f => ({ name: f, time: fs.statSync(path.join(HLS_STREAM_DIR, f)).mtimeMs }))
       .sort((a, b) => b.time - a.time);
-    
-    const keep = files.slice(0, 5);
+
+    const keep = files.slice(0, 3);
     let deleted = 0;
     for (const f of files.slice(3)) {
       try { fs.unlinkSync(path.join(HLS_STREAM_DIR, f.name)); deleted++; } catch {}
@@ -127,39 +209,50 @@ function cleanupHls() {
 }
 
 setInterval(cleanupHls, 3000);
-cleanupHls();
 
-nms.run();
-nms.on('postPublish', (id, streamPath, args) => {
-  console.log('postPublish event:', { id, streamPath, args });
-  isLive = true;
-  io.emit('streamStatus', { isLive: true });
-});
-
-nms.on('donePublish', (id, streamPath, args) => {
-  console.log('donePublish event:', { id, streamPath, args });
-  isLive = false;
-  io.emit('streamStatus', { isLive: false });
-});
-
-function requireAuth(req, res, next) {
-  if (req.session && req.session.isAdmin) {
-    return next();
+app.use('/hls', express.static(HLS_DIR, {
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', FRONTEND_ORIGIN === '*' ? '*' : FRONTEND_ORIGIN);
+    const ext = path.extname(res.req.url);
+    if (ext === '.m3u8') {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=2');
+    } else if (ext === '.ts') {
+      res.setHeader('Cache-Control', 'public, max-age=10');
+    }
   }
-  res.status(401).json({ error: 'Unauthorized' });
-}
+}));
 
-app.post('/api/login', (req, res) => {
-  const { username, password } = req.body;
-  if (username === ADMIN_USER && password === ADMIN_PASS) {
-    req.session.isAdmin = true;
-    return res.json({ success: true });
+app.use('/api', apiLimiter);
+app.use('/api/admin', requireAuth);
+
+app.post('/api/login', loginLimiter, async (req, res) => {
+  try {
+    const username = sanitizeString(req.body?.username);
+    const password = req.body?.password;
+
+    if (!username || username.length < 1 || username.length > 50 || !/^[a-zA-Z0-9_-]+$/.test(username)) {
+      return res.status(400).json({ success: false, error: 'Invalid input' });
+    }
+    if (!password || password.length < 1 || password.length > 128) {
+      return res.status(400).json({ success: false, error: 'Invalid input' });
+    }
+
+    const passwordMatch = username === ADMIN_USER && await bcrypt.compare(password, ADMIN_PASS_HASH);
+    if (!passwordMatch) {
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    }
+
+    req.session.authenticated = true;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Login] Error:', err.message);
+    res.status(500).json({ success: false, error: 'Server error' });
   }
-  res.status(401).json({ error: 'Invalid credentials' });
 });
 
 app.post('/api/logout', (req, res) => {
   req.session.destroy(() => {
+    res.clearCookie('sessionId');
     res.json({ success: true });
   });
 });
@@ -174,21 +267,46 @@ app.get('/api/stream-key', requireAuth, (req, res) => {
   res.json({ streamKey: STREAM_KEY, rtmpUrl });
 });
 
+io.use((socket, next) => {
+  const sessionMiddleware = session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      sameSite: 'none',
+      secure: isProd
+    }
+  });
+  sessionMiddleware(socket.request, {}, next);
+});
+
 io.on('connection', (socket) => {
+  const isAdmin = socket.request.session && socket.request.session.authenticated === true;
+
   socket.on('joinViewers', () => {
     viewerCount++;
     io.to('viewers').emit('viewerCount', viewerCount);
-    io.to('admin').emit('viewerCount', viewerCount);
+    if (isAdmin) {
+      io.to('admin').emit('viewerCount', viewerCount);
+      socket.join('admin');
+    }
     socket.join('viewers');
   });
 
   socket.on('joinAdmin', () => {
+    if (!isAdmin) return;
     socket.join('admin');
     socket.emit('viewerCount', viewerCount);
   });
 
   socket.on('chatMessage', (msg) => {
-    io.to('viewers').emit('chatMessage', msg);
+    if (!msg || typeof msg !== 'object') return;
+    const nickname = sanitizeString(msg.nickname).slice(0, 30);
+    const text = sanitizeString(msg.message).slice(0, 500);
+    if (!nickname || !text) return;
+    io.to('viewers').emit('chatMessage', { nickname, text });
   });
 
   socket.on('disconnect', () => {
@@ -200,19 +318,20 @@ io.on('connection', (socket) => {
   });
 });
 
-const shutdown = () => {
+process.on('SIGTERM', () => {
   console.log('Shutting down gracefully...');
   nms.stop();
-  server.close(() => {
-    console.log('Server closed.');
-    process.exit(0);
-  });
+  server.close(() => process.exit(0));
   setTimeout(() => process.exit(1), 10000);
-};
+});
+process.on('SIGINT', () => {
+  console.log('Shutting down gracefully...');
+  nms.stop();
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(1), 10000);
+});
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
-
+nms.run();
 server.listen(HTTP_PORT, () => {
   console.log(`HTTP server running on http://localhost:${HTTP_PORT}`);
   console.log(`RTMP server running on rtmp://localhost:${RTMP_PORT}`);

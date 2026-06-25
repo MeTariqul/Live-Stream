@@ -1,11 +1,12 @@
 {
   "name": "live-streaming-platform",
   "version": "1.0.0",
-  "description": "Self-hosted live streaming web platform with OBS integration",
+  "description": "Secure live streaming backend with OBS RTMP/HLS integration",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "hash": "node generate-hash.js"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -13,9 +14,12 @@
     "node-media-server": "^2.6.2",
     "socket.io": "^4.7.2",
     "dotenv": "^16.3.1",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5",
+    "bcrypt": "^5.1.1"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   }
 }

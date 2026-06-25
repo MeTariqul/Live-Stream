@@ -49,18 +49,60 @@ live-stream-platform/
 
 ## Local Development
 
-### Backend
+### Backend Security Setup
 
-```bash
-cd backend
-npm install
-cp .env.example .env
-node server.js
-```
+1. Generate a bcrypt hash for your admin password:
+   ```bash
+   cd backend
+   node generate-hash.js YourSecurePassword
+   ```
+   Copy the output (e.g. `BCRYPT_HASH=$2b$10$...`).
 
-### Frontend
+2. Generate a secure session secret (64+ characters):
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+   ```
 
-Open `frontend/index.html` directly in a browser, or serve it with any static server (e.g., `npx serve frontend`). It defaults to `http://localhost:3000` for the backend.
+3. Copy `.env.example` to `.env` and fill in:
+   - `ADMIN_USER` – your admin username
+   - `ADMIN_PASS_HASH` – the bcrypt hash from step 1
+   - `SESSION_SECRET` – the random string from step 2
+   - `FRONTEND_ORIGIN` – your Vercel app URL (e.g. `https://your-app.vercel.app`)
+   - `NODE_ENV` – `production` in production
+
+4. Install dependencies and start:
+   ```bash
+   npm install
+   node server.js
+   ```
+
+### Frontend Deployment
+
+1. In Vercel Dashboard, set environment variables:
+   - `API_BASE_URL` = your backend URL (e.g. `https://your-backend.railway.app`)
+   - `NODE_ENV` = `production`
+
+2. Set Root Directory to `frontend` and deploy.
+
+### OBS Configuration (Max 720p @ 30fps)
+
+1. Open OBS → **Settings** → **Stream**
+2. Set **Service** to **Custom**
+3. Set **Server** to `rtmp://<your-backend-host>:1935/live`
+4. Set **Stream Key** to `mystream` (or your custom key)
+
+**Limit resolution and framerate:**
+- **Settings → Output → Simple mode:**
+  - **Scaled Output Resolution**: `1280x720`
+  - **FPS**: `30`
+  - **Keyframe Interval**: `1 second`
+
+- **Settings → Output → Advanced mode:**
+  - **Video → Output Resolution**: `1280x720`
+  - **Video → FPS**: `30`
+  - **Video → Keyframe Interval**: `1s`
+
+5. Click **Apply** and start streaming
 
 ## Production Deployment
 
@@ -151,13 +193,27 @@ Vercel will run `node inject-env.js` during build (defined in `vercel.json`) to 
 
 Copy `backend/.env.example` to `backend/.env`:
 
-- `ADMIN_USER` / `ADMIN_PASS` — static admin credentials
+- `ADMIN_USER` — admin username (default `admin`)
+- `ADMIN_PASS_HASH` — **bcrypt hash** of admin password. Generate with `node generate-hash.js <password>`
 - `STREAM_KEY` — default RTMP stream key
 - `HTTP_PORT` — backend HTTP port (default 3000)
 - `RTMP_PORT` — backend RTMP port (default 1935)
-- `SESSION_SECRET` — change in production
+- `SESSION_SECRET` — **mandatory**, 64+ random characters
+- `FRONTEND_ORIGIN` — your Vercel domain for CORS (required in production)
 - `FFMPEG_PATH` — path to ffmpeg
-- `FRONTEND_ORIGIN` — your Vercel domain for CORS
+- `NODE_ENV` — `production` for HTTPS cookies
+
+## Security Features
+
+- **Bcrypt password hashing** — plaintext passwords are never stored
+- **Rate limiting** — 5 login attempts per 15 minutes per IP; 100 API requests per 15 minutes
+- **Helmet security headers** — CSP, HSTS, XSS protection
+- **Strict CORS** — only `FRONTEND_ORIGIN` allowed, credentials required
+- **Session hardening** — `httpOnly`, `secure` (production), `sameSite: 'none'`
+- **Input sanitization** — all inputs stripped of control characters and validated
+- **RTMP stream key validation** — only the configured key can publish
+- **No persistent HLS storage** — segments auto-deleted every 3 seconds
+- **Global error handler** — no stack traces exposed in production
 
 ## Configuration (Frontend)
 
