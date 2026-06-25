@@ -8,10 +8,22 @@ media/hls/*
 media/hls/live/*
 media/hls/live/mystream/*
 !media/hls/.gitkeep
+backend/media/hls/*
+backend/media/hls/live/*
+backend/media/hls/live/mystream/*
+!backend/media/hls/.gitkeep
 
-# Environment files
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
 .env
 .env.local
+.venv
 
 # Logs
 *.log

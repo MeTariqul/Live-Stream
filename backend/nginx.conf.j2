@@ -1,0 +1,50 @@
+worker_processes auto;
+events {
+    worker_connections 1024;
+}
+
+rtmp {
+    server {
+        listen {{ rtmp_port }};
+        chunk_size 4096;
+
+        application live {
+            live on;
+            record off;
+
+            hls on;
+            hls_path {{ hls_path }}/live/{{ stream_key }};
+            hls_fragment 1s;
+            hls_playlist_length 3s;
+            hls_cleanup on;
+
+            on_publish {{ internal_base_url }}/api/internal/stream-start;
+            on_publish_done {{ internal_base_url }}/api/internal/stream-stop;
+
+            allow play all;
+            allow publish all;
+        }
+    }
+}
+
+http {
+    server {
+        listen {{ http_port }};
+        server_name localhost;
+
+        location /hls/ {
+            types {
+                application/vnd.apple.mpegurl m3u8;
+                video/mp2t ts;
+            }
+            root {{ hls_path }};
+            add_header Cache-Control 'no-store, no-cache, must-revalidate, max-age=0';
+            add_header Access-Control-Allow-Origin '*';
+            add_header Access-Control-Allow-Headers '*';
+        }
+
+        location / {
+            return 404;
+        }
+    }
+}
