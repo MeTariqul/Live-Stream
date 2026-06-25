@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Live Stream</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+  <header class="header">
+    <h1>My Live Stream</h1>
+  </header>
+
+  <main class="container">
+    <div class="stream-wrapper">
+      <div class="video-container" id="videoContainer">
+        <video id="video" muted controls autoplay playsinline></video>
+        <div class="offline-overlay" id="offlineOverlay">
+          <div class="offline-content">
+            <span class="offline-icon">⏸</span>
+            <h2>Stream is offline</h2>
+            <p>Please check back later when the stream is live.</p>
+          </div>
+        </div>
+      </div>
+      <div class="stream-info">
+        <span class="viewer-badge" id="viewerBadge">👁️ <span id="viewerCount">0</span> watching</span>
+        <span class="status-indicator" id="statusIndicator">
+          <span class="dot offline"></span> Offline
+        </span>
+      </div>
+    </div>
+
+    <div class="chat-panel" id="chatPanel">
+      <div class="chat-header">
+        <h3>Live Chat</h3>
+      </div>
+      <div class="chat-messages" id="chatMessages"></div>
+      <form class="chat-form" id="chatForm">
+        <input type="text" id="nicknameInput" placeholder="Nickname" maxlength="20" required />
+        <input type="text" id="messageInput" placeholder="Type a message..." maxlength="200" required />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2026 My Live Stream</p>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/viewer.js"></script>
+</body>
+</html>

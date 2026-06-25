@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard - My Live Stream</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+  <div class="dashboard-container" id="dashboardContainer">
+    <header class="header">
+      <h1>Admin Dashboard</h1>
+      <button id="logoutBtn" class="btn btn-outline">Logout</button>
+    </header>
+
+    <main class="container">
+      <div class="dashboard-grid">
+        <div class="card status-card">
+          <h3>Stream Status</h3>
+          <div class="status-display">
+            <span class="status-indicator large" id="statusIndicator">
+              <span class="dot offline"></span> Offline
+            </span>
+          </div>
+        </div>
+
+        <div class="card viewercard">
+          <h3>Current Viewers</h3>
+          <div class="viewer-display">
+            <span id="viewerCount">0</span>
+          </div>
+        </div>
+
+        <div class="card key-card">
+          <h3>Stream Key</h3>
+          <div class="key-display">
+            <code id="streamKey">mystream</code>
+            <button id="copyKeyBtn" class="btn btn-small">Copy</button>
+          </div>
+        </div>
+
+        <div class="card url-card">
+          <h3>RTMP Ingest URL</h3>
+          <div class="url-display">
+            <code id="rtmpUrl">rtmp://localhost:1935/live</code>
+            <button id="copyUrlBtn" class="btn btn-small">Copy</button>
+          </div>
+          <p class="hint">Configure this in OBS as a Custom RTMP server with stream key above.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/config.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

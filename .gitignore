@@ -1,0 +1,29 @@
+# Node.js modules
+backend/node_modules/
+frontend/node_modules/
+
+# HLS segments (keep .gitkeep)
+media/hls/*
+!.gitkeep
+media/hls/live/*
+media/hls/live/mystream/*
+!media/hls/.gitkeep
+
+# Environment files
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel
+
+# Temp files
+cookies.txt
+*.tmp
