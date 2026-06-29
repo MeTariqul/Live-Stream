@@ -6,28 +6,220 @@
   <title>My Live TV</title>
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7"></script>
+  <script src="js/i18n.js"></script>
 </head>
 <body>
-  <div class="tv-container">
-    <div class="channel-bar" id="channelBar">
-      <label for="channelSelect">CH</label>
-      <select id="channelSelect" class="channel-select"></select>
-      <span id="liveIndicator" class="live-indicator hidden">LIVE</span>
-    </div>
-    <div class="player-wrapper" id="playerWrapper">
-      <video id="video" controls autoplay muted playsinline></video>
-      <div class="offline-screen" id="offlineScreen">
-        <div class="offline-content">
-          <div class="offline-icon">📺</div>
-          <h1>Channel Offline</h1>
-          <p>This channel is currently not streaming</p>
+  <div class="notification-banner" id="notificationBanner">
+    <button class="close-btn" onclick="this.parentElement.classList.remove('show')">&times;</button>
+  </div>
+
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <button class="hamburger" id="hamburger">&#9776;</button>
+        <div class="logo">
+          <img class="logo-img" style="display:none;" alt="Logo" />
+          <span class="logo-text">My Live TV</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-sm btn-ghost" onclick="window.location.href='privacy.html'">Privacy</button>
+        <button class="btn btn-sm btn-ghost" id="loginBtn" onclick="showModal('loginModal')">Login</button>
+        <button class="btn btn-sm btn-outline" id="signupBtn" onclick="showModal('signupModal')">Sign Up</button>
+        <div class="header-right" id="userMenu" style="display:none;">
+          <span id="userName" style="font-size:13px;color:var(--text-secondary);"></span>
+          <button class="btn btn-sm btn-ghost" id="profileBtn">Profile</button>
+          <button class="btn btn-sm btn-ghost" id="logoutBtn">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="main-layout">
+      <!-- Sidebar -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <h3>Channels</h3>
+        </div>
+        <div class="sidebar-search">
+          <input type="text" id="sidebarSearch" placeholder="Search channels..." />
+        </div>
+        <div class="sidebar-filters">
+          <button class="filter-btn active" id="channelFilter" value="all" onclick="selectFilter('all')">All</button>
+          <button class="filter-btn" id="filterLive" value="live" onclick="selectFilter('live')">Live</button>
+          <button class="filter-btn" id="filterFav" value="favorites" onclick="selectFilter('favorites')">Favorites</button>
+          <button class="filter-btn" id="filterEpg" onclick="showModal('epgModal')">EPG</button>
+          <button class="filter-btn" id="filterRecordings" onclick="showModal('recordingsModal')">VOD</button>
+        </div>
+        <div class="channel-list" id="channelList"></div>
+      </aside>
+
+      <!-- Content Area -->
+      <div class="content-area">
+        <div class="player-wrapper" id="playerWrapper">
+          <video id="video" autoplay muted playsinline></video>
+          <div class="now-playing-overlay" id="nowPlayingOverlay"></div>
+          <div class="offline-screen" id="offlineScreen">
+            <div class="offline-content">
+              <div class="offline-icon">&#x1F4FA;</div>
+              <h1>Channel Offline</h1>
+              <p>This channel is currently not streaming</p>
+            </div>
+          </div>
+
+          <!-- Controls -->
+          <div class="player-controls">
+            <div class="progress-bar-wrapper" id="progressWrapper">
+              <div class="progress-bar">
+                <div class="progress-buffered" id="progressBuffered"></div>
+                <div class="progress-played" id="progressPlayed"></div>
+                <div class="progress-thumb"></div>
+              </div>
+            </div>
+            <div class="controls-row">
+              <button class="control-btn" id="playBtn" onclick="togglePlay()">&#9654;</button>
+              <span class="time-display"><span id="currentTime">0:00</span> / <span id="duration">0:00</span></span>
+              <div class="volume-wrapper">
+                <button class="control-btn" id="volumeBtn">&#128266;</button>
+                <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.05" value="1" />
+              </div>
+              <div style="flex:1;"></div>
+              <span id="liveIndicator" class="badge badge-live hidden" style="display:none;">LIVE</span>
+              <span id="upNextInfo" style="font-size:11px;color:rgba(255,255,255,0.6);display:none;"></span>
+              <select class="quality-select" id="qualitySelect"></select>
+              <button class="control-btn" id="refreshBtn" title="Refresh stream">&#x21BB;</button>
+              <button class="control-btn" id="fullscreenBtn" title="Fullscreen">&#x26F6;</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Info Bar -->
+        <div class="info-bar">
+          <div class="info-bar-left">
+            <span id="channelStatus"></span>
+          </div>
+          <div class="info-bar-right">
+            <span style="font-size:11px;color:var(--text-muted);">My Live TV v2.0</span>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Login Modal -->
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal" style="position:relative;">
+      <button class="modal-close" onclick="hideModal('loginModal')">&times;</button>
+      <h2>Login</h2>
+      <form id="loginForm">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" name="username" required autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" name="password" required autocomplete="current-password" />
+        </div>
+        <div class="form-error"></div>
+        <button type="submit" class="btn btn-primary">Login</button>
+      </form>
+      <div class="form-footer">Don't have an account? <a id="showSignup">Sign Up</a></div>
+    </div>
+  </div>
+
+  <!-- Signup Modal -->
+  <div class="modal-overlay" id="signupModal">
+    <div class="modal" style="position:relative;">
+      <button class="modal-close" onclick="hideModal('signupModal')">&times;</button>
+      <h2>Sign Up</h2>
+      <form id="signupForm">
+        <div class="form-group">
+          <label>Username (alphanumeric, 3-30 chars)</label>
+          <input type="text" name="username" required minlength="3" maxlength="30" pattern="^[a-zA-Z0-9_]+$" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label>Password (min 6 chars)</label>
+          <input type="password" name="password" required minlength="6" autocomplete="new-password" />
+        </div>
+        <div class="form-group">
+          <label>Confirm Password</label>
+          <input type="password" name="confirmPassword" required minlength="6" autocomplete="new-password" />
+        </div>
+        <div class="form-error"></div>
+        <button type="submit" class="btn btn-primary">Create Account</button>
+      </form>
+      <div class="form-footer">Already have an account? <a id="showLogin">Login</a></div>
+    </div>
+  </div>
+
+  <!-- Profile Modal -->
+  <div class="modal-overlay" id="profileModal">
+    <div class="modal" style="position:relative;">
+      <button class="modal-close" onclick="hideModal('profileModal')">&times;</button>
+      <h2>Profile</h2>
+      <div id="profileContent"></div>
+    </div>
+  </div>
+
+  <!-- Parental PIN Modal -->
+  <div class="modal-overlay" id="parentalModal">
+    <div class="modal" style="position:relative;">
+      <button class="modal-close" onclick="hideModal('parentalModal')">&times;</button>
+      <h2>PIN Required</h2>
+      <p style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:16px;">Enter your parental control PIN to access this content</p>
+      <input type="hidden" id="parentalChannelId" />
+      <div id="parentalCallback" style="display:none;"></div>
+      <div class="form-group">
+        <label>PIN</label>
+        <input type="password" id="parentalInput" maxlength="10" inputmode="numeric" pattern="[0-9]*" autocomplete="off" />
+      </div>
+      <div class="form-error" id="parentalError"></div>
+      <button class="btn btn-primary" id="parentalSubmit">Submit</button>
+      <div class="form-footer"><a onclick="hideModal('parentalModal')">Cancel</a></div>
+    </div>
+  </div>
+
+  <!-- EPG Modal -->
+  <div class="modal-overlay" id="epgModal">
+    <div class="modal" style="max-width:90%;width:900px;position:relative;">
+      <button class="modal-close" onclick="hideModal('epgModal')">&times;</button>
+      <h2>Program Guide</h2>
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
+        <input type="date" id="epgDate" style="padding:6px 10px;background:var(--bg-tertiary);border:1px solid var(--border-light);border-radius:var(--radius);color:var(--text-primary);" />
+        <button class="btn btn-sm btn-secondary" id="epgTodayBtn">Today</button>
+      </div>
+      <div class="epg-grid" id="epgGridContent"></div>
+    </div>
+  </div>
+
+  <!-- Recordings Modal -->
+  <div class="modal-overlay" id="recordingsModal">
+    <div class="modal" style="max-width:90%;width:800px;position:relative;">
+      <button class="modal-close" onclick="hideModal('recordingsModal')">&times;</button>
+      <h2>Recordings & VOD</h2>
+      <div class="recordings-grid" id="recordingsList"></div>
+    </div>
+  </div>
+
   <script>
-    window.BACKEND_URL = 'http://localhost:3000';
+    window.BACKEND_URL = window.location.origin === 'http://localhost:3001' ? 'http://localhost:3000' : window.location.origin;
+
+    function showModal(id) { const el = document.getElementById(id); if (el) el.classList.add('show'); }
+    function hideModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('show'); }
+
+    let appFilter = 'all';
+    function selectFilter(f) {
+      appFilter = f;
+      document.querySelectorAll('.filter-btn[value]').forEach(b => b.classList.remove('active'));
+      const btn = document.querySelector('.filter-btn[value="' + f + '"]');
+      if (btn) btn.classList.add('active');
+    }
+
+    function togglePlay() {
+      const video = document.getElementById('video');
+      if (!video) return;
+      if (video.paused) video.play(); else video.pause();
+    }
   </script>
   <script src="js/viewer.js"></script>
 </body>

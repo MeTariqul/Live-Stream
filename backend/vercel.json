@@ -2,7 +2,7 @@
   "functions": {
     "main.py": {
       "runtime": "python3.11",
-      "maxDuration": 10
+      "maxDuration": 30
     }
   },
   "rewrites": [

@@ -7,38 +7,179 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <div class="admin-container" id="loginContainer">
+  <!-- Login -->
+  <div class="admin-container" id="loginContainer" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--bg-primary);">
     <div class="card">
-      <h2>Admin Login</h2>
+      <h2 style="text-align:center;">Admin Login</h2>
       <form id="loginForm">
         <div class="form-group">
-          <label for="username">Username</label>
-          <input type="text" id="username" required autocomplete="username" />
+          <label for="loginUsername">Username</label>
+          <input type="text" id="loginUsername" required autocomplete="username" />
         </div>
         <div class="form-group">
-          <label for="password">Password</label>
-          <input type="password" id="password" required autocomplete="current-password" />
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" required autocomplete="current-password" />
         </div>
-        <p class="error" id="loginError"></p>
+        <p class="form-error" id="loginError"></p>
         <button type="submit" class="btn btn-primary">Login</button>
       </form>
+      <p style="text-align:center;margin-top:16px;font-size:12px;color:var(--text-muted);"><a href="index.html">Back to Viewer</a></p>
     </div>
   </div>
 
-  <div class="admin-container" id="dashboardContainer" style="display: none;">
-    <div class="card dashboard">
-      <h2>Admin Panel</h2>
-      <div class="create-form">
-        <input type="text" id="channelName" placeholder="Channel name" maxlength="50" />
-        <button id="createBtn" class="btn btn-primary">Create Channel</button>
+  <!-- App -->
+  <div class="admin-layout" id="appContainer" style="display:none;">
+    <nav class="admin-nav">
+      <div class="admin-nav-header">
+        <h2>Admin Panel</h2>
+        <span style="font-size:11px;color:var(--text-muted);">v2.0</span>
       </div>
-      <div class="channels-list" id="channelsList"></div>
-      <button id="logoutBtn" class="btn btn-outline">Logout</button>
+      <button class="admin-nav-item active" data-nav="overview">Overview</button>
+      <button class="admin-nav-item" data-nav="channels">Channels</button>
+      <button class="admin-nav-item" data-nav="epg">EPG Manager</button>
+      <button class="admin-nav-item" data-nav="recordings">Recordings</button>
+      <button class="admin-nav-item" data-nav="users">Users</button>
+      <button class="admin-nav-item" data-nav="logs">System Logs</button>
+      <button class="admin-nav-item" data-nav="settings">Settings</button>
+      <div style="flex:1;"></div>
+      <button class="admin-nav-item" id="logoutBtn" style="border-top:1px solid var(--border);">Logout</button>
+    </nav>
+
+    <div class="admin-content">
+      <div class="admin-topbar" id="adminTopbar">
+        <h1>Dashboard</h1>
+        <a href="index.html" style="font-size:13px;">View Site</a>
+      </div>
+
+      <div class="admin-body">
+        <!-- Overview Tab -->
+        <div class="tab-content active" id="overviewTab">
+          <div class="stats-grid">
+            <div class="stat-card"><div class="stat-value" id="totalChannels">0</div><div class="stat-label">Channels</div></div>
+            <div class="stat-card"><div class="stat-value" id="activeStreams">0</div><div class="stat-label">Active Streams</div></div>
+            <div class="stat-card"><div class="stat-value" id="totalUsers">0</div><div class="stat-label">Total Users</div></div>
+            <div class="stat-card"><div class="stat-value" id="totalRecordings">0</div><div class="stat-label">Recordings</div></div>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);">Data refreshes automatically every 15 seconds.</div>
+        </div>
+
+        <!-- Channels Tab -->
+        <div class="tab-content" id="channelsTab">
+          <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+            <input type="text" id="newChannelName" placeholder="Channel name" maxlength="50" style="padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-light);border-radius:var(--radius);color:var(--text-primary);flex:1;min-width:150px;" />
+            <input type="text" id="newChannelCategory" placeholder="Category" style="padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-light);border-radius:var(--radius);color:var(--text-primary);width:120px;" />
+            <button class="btn btn-primary" id="createChannelBtn" style="width:auto;">Create Channel</button>
+          </div>
+          <div id="channelsList"></div>
+        </div>
+
+        <!-- EPG Tab -->
+        <div class="tab-content" id="epgTab">
+          <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:flex-end;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Channel</label>
+              <select id="epgChannelSelect" style="min-width:150px;"></select>
+            </div>
+          </div>
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;">
+            <h3 style="font-size:14px;margin-bottom:12px;">Add Program</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">
+              <div class="form-group" style="margin-bottom:0;"><label>Title</label><input type="text" id="programTitle" /></div>
+              <div class="form-group" style="margin-bottom:0;"><label>Description</label><input type="text" id="programDesc" /></div>
+              <div class="form-group" style="margin-bottom:0;"><label>Start</label><input type="datetime-local" id="programStart" /></div>
+              <div class="form-group" style="margin-bottom:0;"><label>End</label><input type="datetime-local" id="programEnd" /></div>
+              <div class="form-group" style="margin-bottom:0;"><label>Genre</label><input type="text" id="programGenre" /></div>
+              <div class="form-group" style="margin-bottom:0;"><label>Episode #</label><input type="number" id="programEpisode" /></div>
+              <div class="form-group" style="margin-bottom:0;"><label>Recurring</label>
+                <select id="programRecurring">
+                  <option value="">None</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom:0;display:flex;align-items:center;gap:8px;padding-top:20px;">
+                <input type="checkbox" id="programMature" /> <label for="programMature" style="margin:0;">Mature (18+)</label>
+              </div>
+            </div>
+            <button class="btn btn-primary" id="addProgramBtn" style="width:auto;margin-top:12px;">Add Program</button>
+          </div>
+          <div id="epgList"></div>
+        </div>
+
+        <!-- Recordings Tab -->
+        <div class="tab-content" id="recordingsTab">
+          <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <button class="btn btn-secondary" id="syncRecordingsBtn">Sync from Mux</button>
+          </div>
+          <div id="recordingsList"></div>
+        </div>
+
+        <!-- Users Tab -->
+        <div class="tab-content" id="usersTab">
+          <div id="usersList"></div>
+        </div>
+
+        <!-- Logs Tab -->
+        <div class="tab-content" id="logsTab">
+          <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <button class="btn btn-danger" id="purgeLogsBtn">Purge All Logs</button>
+          </div>
+          <div style="background:#0a0a0a;border:1px solid var(--border);border-radius:var(--radius);padding:12px;max-height:500px;overflow-y:auto;" id="logsList"></div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div class="tab-content" id="settingsTab">
+          <div style="max-width:500px;">
+            <div class="form-group">
+              <label>Platform Name</label>
+              <input type="text" id="platformName" />
+            </div>
+            <div class="form-group">
+              <label>Primary Color</label>
+              <input type="color" id="primaryColor" style="height:40px;padding:4px;" />
+            </div>
+            <div class="form-group">
+              <label>Default Language</label>
+              <select id="defaultLanguage">
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Max Login Attempts</label>
+              <input type="number" id="maxLoginAttempts" min="3" max="20" />
+            </div>
+            <div class="form-group">
+              <label>Custom CSS</label>
+              <textarea id="customCss" rows="6" style="font-family:monospace;font-size:12px;"></textarea>
+            </div>
+            <button class="btn btn-primary" id="saveSettingsBtn" style="width:auto;margin-bottom:20px;">Save Settings</button>
+
+            <hr style="border-color:var(--border);margin:20px 0;" />
+
+            <div class="form-group">
+              <label>Logo Upload</label>
+              <input type="file" id="logoFile" accept="image/*" />
+            </div>
+            <button class="btn btn-secondary" id="logoUploadBtn" style="width:auto;">Upload Logo</button>
+
+            <hr style="border-color:var(--border);margin:20px 0;" />
+
+            <div class="form-group">
+              <label>Send Global Notification</label>
+              <input type="text" id="notificationMessage" placeholder="Notification message..." />
+            </div>
+            <button class="btn btn-secondary" id="sendNotificationBtn" style="width:auto;">Send</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
-    window.BACKEND_URL = 'http://localhost:3000';
+    window.BACKEND_URL = window.location.origin === 'http://localhost:3001' ? 'http://localhost:3000' : window.location.origin;
   </script>
   <script src="js/admin.js"></script>
 </body>
