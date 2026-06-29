@@ -50,7 +50,7 @@
       headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
       ...options,
     });
-    if (res.status === 401 && path !== '/api/auth/me' && path !== '/api/channels') {
+    if (res.status === 401 && !path.includes('/login') && !path.includes('/signup') && path !== '/api/auth/me' && path !== '/api/channels') {
       APP.state.user = null;
       updateUI();
     }

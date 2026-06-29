@@ -31,7 +31,7 @@
       headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
       ...options,
     });
-    if (res.status === 401) {
+    if (res.status === 401 && !path.includes('/login')) {
       showLogin();
       throw new Error('Unauthorized');
     }
