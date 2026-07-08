@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppStore } from '@/stores/app';
 import { useUIStore } from '@/stores/ui';
-import { STREAM_PLATFORM, YOUTUBE_VIDEO_ID, TWITCH_CHANNEL } from '@/lib/constants';
 import { getYouTubeEmbedUrl, getTwitchEmbedUrl, cn, generateId } from '@/lib/utils';
 import type { ChatMessage } from '@/types';
 
@@ -25,10 +24,10 @@ export default function LivePage() {
   const isLive = stream.is_live;
 
   const getEmbedUrl = useCallback(() => {
-    if (STREAM_PLATFORM === 'youtube' && YOUTUBE_VIDEO_ID) return getYouTubeEmbedUrl(YOUTUBE_VIDEO_ID, isLive);
-    if (STREAM_PLATFORM === 'twitch' && TWITCH_CHANNEL) return getTwitchEmbedUrl(TWITCH_CHANNEL);
+    if (stream.platform === 'youtube' && stream.embed_id) return getYouTubeEmbedUrl(stream.embed_id, isLive);
+    if (stream.platform === 'twitch' && stream.embed_id) return getTwitchEmbedUrl(stream.embed_id);
     return '';
-  }, [isLive]);
+  }, [stream.platform, stream.embed_id, isLive]);
 
   const embedUrl = getEmbedUrl();
 
@@ -110,7 +109,7 @@ export default function LivePage() {
               <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Info className="h-4 w-4" /> Stream Info</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Status</span><Badge variant={isLive ? 'live' : 'secondary'}>{isLive ? 'Live' : 'Offline'}</Badge></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Platform</span><span className="capitalize">{STREAM_PLATFORM}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Platform</span><span className="capitalize">{stream.platform}</span></div>
               </CardContent>
             </Card>
 
@@ -132,7 +131,7 @@ export default function LivePage() {
               </CardContent>
             </Card>
 
-            {embedUrl && <Button asChild variant="outline" className="w-full"><a href={embedUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 h-4 w-4" /> Watch on {STREAM_PLATFORM === 'youtube' ? 'YouTube' : 'Twitch'}</a></Button>}
+            {embedUrl && <Button asChild variant="outline" className="w-full"><a href={embedUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 h-4 w-4" /> Watch on {stream.platform === 'youtube' ? 'YouTube' : 'Twitch'}</a></Button>}
           </div>
         </div>
       </motion.div>

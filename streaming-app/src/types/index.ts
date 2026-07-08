@@ -41,6 +41,7 @@ export interface StreamSettings {
   is_live: boolean;
   viewer_count: number;
   platform: 'youtube' | 'twitch';
+  embed_id: string;
 }
 
 export interface SiteSettings {

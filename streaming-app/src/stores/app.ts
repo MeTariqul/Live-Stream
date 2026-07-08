@@ -38,6 +38,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     is_live: false,
     viewer_count: 0,
     platform: 'youtube' as const,
+    embed_id: '',
   }),
   schedule: loadFromStorage('sh_schedule', DEFAULT_SCHEDULE),
   recordings: loadFromStorage('sh_recordings', DEFAULT_RECORDINGS),

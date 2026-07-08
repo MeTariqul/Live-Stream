@@ -15,10 +15,11 @@ export default function AdminStreamPage() {
   const [title, setTitle] = useState(stream.title);
   const [game, setGame] = useState(stream.game);
   const [description, setDescription] = useState(stream.description);
+  const [embedId, setEmbedId] = useState(stream.embed_id);
 
-  useEffect(() => { setTitle(stream.title); setGame(stream.game); setDescription(stream.description); }, [stream]);
+  useEffect(() => { setTitle(stream.title); setGame(stream.game); setDescription(stream.description); setEmbedId(stream.embed_id); }, [stream]);
 
-  const handleSave = () => { setStream({ title, game, description }); toast.success('Stream settings updated'); };
+  const handleSave = () => { setStream({ title, game, description, embed_id: embedId }); toast.success('Stream settings updated'); };
   const toggleLive = () => { setStream({ is_live: !stream.is_live }); toast.success(stream.is_live ? 'Stream marked offline' : 'Stream marked live'); };
 
   return (
@@ -32,6 +33,7 @@ export default function AdminStreamPage() {
               <div><label className="text-sm font-medium mb-1 block">Stream Title</label><input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="Enter stream title" /></div>
               <div><label className="text-sm font-medium mb-1 block">Current Game</label><input value={game} onChange={(e) => setGame(e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="e.g. Valorant, Minecraft" /></div>
               <div><label className="text-sm font-medium mb-1 block">Description</label><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="w-full rounded-lg border bg-background px-3 py-2 text-sm resize-none" placeholder="Stream description" /></div>
+              <div><label className="text-sm font-medium mb-1 block">Stream Embed ID</label><input value={embedId} onChange={(e) => setEmbedId(e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="YouTube video ID or Twitch channel name" /><p className="text-xs text-muted-foreground mt-1">YouTube: video ID from URL (e.g., dQw4w9WgXcQ). Twitch: channel name (e.g., shroud).</p></div>
               <Button onClick={handleSave}><Save className="mr-2 h-4 w-4" />Save Changes</Button>
             </CardContent>
           </Card>
