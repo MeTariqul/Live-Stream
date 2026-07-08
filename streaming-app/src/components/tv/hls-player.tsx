@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { Play, Pause, Volume2, VolumeX, Maximize, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,95 +24,104 @@ export function HLSPlayer({ src, className, autoPlay = true, channelName }: HLSP
   const [isMuted, setIsMuted] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [retries, setRetries] = useState(0);
+  const [status, setStatus] = useState('Initializing...');
+  const srcRef = useRef(src);
 
-  const destroyHls = () => {
-    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
-  };
-
-  const loadStream = useCallback((url: string) => {
+  useEffect(() => {
     const video = videoRef.current;
-    if (!video || !url) return;
+    if (!video || !src) return;
+    srcRef.current = src;
+
+    const destroyHls = () => { if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
     destroyHls();
     setError(null);
     setLoading(true);
+    setStatus('Loading manifest...');
 
-    const proxied = proxyUrl(url);
-    const isHls = url.includes('.m3u8') || url.includes('m3u8') || url.includes('.mpd');
+    const proxied = proxyUrl(src);
+    const isHls = src.includes('.m3u8') || src.includes('m3u8');
 
     if (isHls && Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
-        lowLatencyMode: true,
-        backBufferLength: 90,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
+        lowLatencyMode: false,
+        backBufferLength: 30,
+        maxBufferLength: 10,
+        maxMaxBufferLength: 30,
         startFragPrefetch: true,
         testBandwidth: false,
-        manifestLoadingTimeOut: 15000,
+        manifestLoadingTimeOut: 20000,
         manifestLoadingMaxRetry: 3,
         manifestLoadingRetryDelay: 1000,
-        levelLoadingTimeOut: 15000,
+        levelLoadingTimeOut: 20000,
         levelLoadingMaxRetry: 3,
         fragLoadingTimeOut: 20000,
         fragLoadingMaxRetry: 3,
       });
       hlsRef.current = hls;
 
-      hls.loadSource(proxied);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {
+        console.log('[HLS] MANIFEST_PARSED', data.levels.length, 'levels');
+        setStatus(`Manifest loaded (${data.levels.length} quality levels)`);
         setLoading(false);
-        setRetries(0);
         if (autoPlay) video.play().catch(() => {});
       });
 
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if (!data.fatal) return;
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          if (retries < 2) {
-            setRetries((r) => r + 1);
-            setTimeout(() => hls.startLoad(), 2000);
+      hls.on(Hls.Events.LEVEL_SWITCHING, (_e, data) => {
+        console.log('[HLS] LEVEL_SWITCHING', data.level);
+        setStatus(`Switching to level ${data.level}...`);
+      });
+
+      hls.on(Hls.Events.FRAG_LOADED, (_e, data) => {
+        console.log('[HLS] FRAG_LOADED', data.frag?.url?.substring(0, 80));
+        setStatus('Buffering...');
+        setLoading(false);
+      });
+
+      hls.on(Hls.Events.ERROR, (_e, data) => {
+        console.error('[HLS] ERROR', data.type, data.details, data);
+        if (data.fatal) {
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            setStatus('Network error - retrying...');
+            hls.startLoad();
           } else {
-            setError('Stream offline or unavailable');
+            setError(`Stream error: ${data.details}`);
             setLoading(false);
           }
-        } else {
-          setError('Stream format not supported');
-          setLoading(false);
         }
       });
+
+      console.log('[HLS] Loading source:', proxied);
+      hls.loadSource(proxied);
+      hls.attachMedia(video);
+
     } else if (isHls && video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = proxied;
       video.onloadedmetadata = () => { setLoading(false); if (autoPlay) video.play().catch(() => {}); };
       video.onerror = () => { setError('Stream unavailable'); setLoading(false); };
     } else {
-      video.src = proxied;
-      video.onloadeddata = () => { setLoading(false); if (autoPlay) video.play().catch(() => {}); };
-      video.onerror = () => { setError('Stream unavailable'); setLoading(false); };
+      setError('HLS not supported in this browser');
+      setLoading(false);
     }
-  }, [autoPlay, retries]);
 
-  useEffect(() => {
-    if (src) { setRetries(0); loadStream(src); }
     return destroyHls;
-  }, [src]);
+  }, [src, autoPlay]);
 
   const togglePlay = () => { const v = videoRef.current; if (!v) return; v.paused ? (v.play(), setIsPlaying(true)) : (v.pause(), setIsPlaying(false)); };
   const toggleMute = () => { const v = videoRef.current; if (!v) return; v.muted = !v.muted; setIsMuted(v.muted); };
   const toggleFullscreen = () => { const v = videoRef.current; if (!v) return; document.fullscreenElement ? document.exitFullscreen() : v.requestFullscreen(); };
-  const handleRetry = () => { setRetries(0); loadStream(src); };
+  const handleRetry = () => { setLoading(true); setError(null); setStatus('Retrying...'); if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } const v = videoRef.current; if (v) { v.removeAttribute('src'); v.load(); } const srcCopy = srcRef.current; setTimeout(() => { setLoading(true); setError(null); }, 100); window.location.reload(); };
 
   return (
     <div className={cn('relative group bg-black rounded-lg overflow-hidden', className)}>
       <video ref={videoRef} className="w-full h-full object-contain" playsInline muted={isMuted} onClick={togglePlay} />
 
-      {loading && (
+      {loading && !error && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
           <div className="text-center space-y-3">
             <div className="h-10 w-10 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
-            <p className="text-white/70 text-sm">Loading stream...</p>
+            <p className="text-white/70 text-sm">{status}</p>
+            {channelName && <p className="text-white/40 text-xs">{channelName}</p>}
           </div>
         </div>
       )}
@@ -127,6 +136,12 @@ export function HLSPlayer({ src, className, autoPlay = true, channelName }: HLSP
               <RefreshCw className="mr-2 h-3 w-3" />Retry
             </Button>
           </div>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="absolute top-3 left-3 z-20">
+          <span className="inline-flex items-center rounded-full bg-black/60 px-2 py-1 text-[10px] text-white/70">{status}</span>
         </div>
       )}
 

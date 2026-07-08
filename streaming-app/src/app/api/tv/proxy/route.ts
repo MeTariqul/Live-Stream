@@ -36,11 +36,12 @@ export async function GET(request: NextRequest) {
   try {
     const upstream = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': new URL(url).origin,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': new URL(url).origin + '/',
         'Origin': new URL(url).origin,
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
-      signal: AbortSignal.timeout(15000),
     });
 
     if (!upstream.ok) return new Response(`Upstream error: ${upstream.status}`, { status: upstream.status });
@@ -57,7 +58,9 @@ export async function GET(request: NextRequest) {
         headers: {
           'Content-Type': 'application/vnd.apple.mpegurl',
           'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'public, max-age=5',
+          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+          'Access-Control-Allow-Headers': '*',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
         },
       });
     }
@@ -65,14 +68,14 @@ export async function GET(request: NextRequest) {
     const body = upstream.body;
     if (!body) return new Response('No body', { status: 500 });
 
-    return new Response(body, {
-      status: 200,
-      headers: {
-        'Content-Type': contentType,
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, max-age=10',
-      },
-    });
+    const respHeaders = new Headers();
+    respHeaders.set('Content-Type', contentType);
+    respHeaders.set('Access-Control-Allow-Origin', '*');
+    respHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    respHeaders.set('Access-Control-Allow-Headers', '*');
+    respHeaders.set('Cache-Control', 'public, max-age=2');
+
+    return new Response(body, { status: 200, headers: respHeaders });
   } catch (e: any) {
     return new Response(`Proxy error: ${e.message}`, { status: 500 });
   }
