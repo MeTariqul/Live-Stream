@@ -3,9 +3,8 @@
   let APP = {};
 
   APP.state = {
-    user: null,
     channels: [],
-    favorites: [],
+    favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
     currentChannelId: null,
     isLive: false,
     hls: null,
@@ -24,7 +23,6 @@
     playerReady: false,
     language: localStorage.getItem('lang') || 'en',
     settings: {},
-    parentalVerified: {},
     lastChannelId: localStorage.getItem('lastChannelId') || null,
   };
 
@@ -50,10 +48,6 @@
       headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
       ...options,
     });
-    if (res.status === 401 && !path.includes('/login') && !path.includes('/signup') && path !== '/api/auth/me' && path !== '/api/channels') {
-      APP.state.user = null;
-      updateUI();
-    }
     return res;
   }
 
@@ -89,64 +83,20 @@
     if (el) el.classList.remove('show');
   }
 
-  /* ─── Auth ─── */
-  async function checkAuth() {
-    try {
-      const data = await apiJSON('/api/auth/me');
-      APP.state.user = data;
-    } catch {
-      APP.state.user = null;
-    }
+  /* ─── Favorites (localStorage) ─── */
+  function saveFavorites() {
+    localStorage.setItem('favorites', JSON.stringify(APP.state.favorites));
   }
 
-  async function doLogin(username, password) {
-    const data = await apiJSON('/api/login', {
-      method: 'POST',
-      body: JSON.stringify({ username, password }),
-    });
-    APP.state.user = { username: data.username, tier: data.tier };
-    hideModal('loginModal');
-    updateUI();
-    showToast('Logged in as ' + username, 'success');
-  }
-
-  async function doSignup(username, password) {
-    const data = await apiJSON('/api/signup', {
-      method: 'POST',
-      body: JSON.stringify({ username, password }),
-    });
-    APP.state.user = { username: data.username, tier: 'basic' };
-    hideModal('signupModal');
-    updateUI();
-    showToast('Account created!', 'success');
-  }
-
-  async function doLogout() {
-    await api('/api/logout', { method: 'POST' });
-    APP.state.user = null;
-    updateUI();
-    showToast('Logged out');
-  }
-
-  /* ─── Favorites ─── */
-  async function fetchFavorites() {
-    if (!APP.state.user) { APP.state.favorites = []; return; }
-    try { APP.state.favorites = await apiJSON('/api/favorites'); } catch { APP.state.favorites = []; }
-  }
-
-  async function toggleFavorite(channelId) {
-    if (!APP.state.user) { showModal('loginModal'); return; }
+  function toggleFavorite(channelId) {
     const isFav = APP.state.favorites.includes(channelId);
-    try {
-      if (isFav) {
-        await apiJSON('/api/favorites/' + channelId, { method: 'DELETE' });
-        APP.state.favorites = APP.state.favorites.filter(f => f !== channelId);
-      } else {
-        const data = await apiJSON('/api/favorites/' + channelId, { method: 'POST' });
-        APP.state.favorites = data.favorites;
-      }
-      renderChannelList();
-    } catch (e) { showToast(e.message, 'error'); }
+    if (isFav) {
+      APP.state.favorites = APP.state.favorites.filter(f => f !== channelId);
+    } else {
+      APP.state.favorites.push(channelId);
+    }
+    saveFavorites();
+    renderChannelList();
   }
 
   /* ─── Channels ─── */
@@ -186,9 +136,7 @@
       );
     }
     if (filter === 'live') channels = channels.filter(c => c.status === 'active');
-    if (filter === 'favorites' && APP.state.user) {
-      channels = channels.filter(c => APP.state.favorites.includes(c.id));
-    }
+    if (filter === 'favorites') channels = channels.filter(c => APP.state.favorites.includes(c.id));
     if (catFilter) channels = channels.filter(c => c.category === catFilter);
 
     list.innerHTML = '';
@@ -201,14 +149,13 @@
       const isActive = ch.status === 'active';
       const isFav = APP.state.favorites.includes(ch.id);
       const isCurrent = ch.id === APP.state.currentChannelId;
-      const isMature = ch.is_mature;
 
       const item = document.createElement('div');
       item.className = 'channel-item' + (isCurrent ? ' active' : '');
       item.innerHTML = `
         <div class="channel-icon">${ch.icon_url ? '<img src="' + escapeHtml(ch.icon_url) + '" alt="">' : ch.name[0].toUpperCase()}</div>
         <div class="channel-info">
-          <div class="channel-name">${escapeHtml(ch.name)}${isMature ? '<span class="mature-badge">18+</span>' : ''}</div>
+          <div class="channel-name">${escapeHtml(ch.name)}${ch.is_mature ? '<span class="mature-badge">18+</span>' : ''}</div>
           <div class="channel-category">${escapeHtml(ch.category || 'General')}</div>
         </div>
         <button class="fav-btn${isFav ? ' active' : ''}" data-id="${ch.id}" title="Favorite">${isFav ? '\u2605' : '\u2606'}</button>
@@ -221,15 +168,7 @@
       const favBtn = item.querySelector('.fav-btn');
       favBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFavorite(ch.id); });
 
-      item.addEventListener('click', () => {
-        if (isMature && !APP.state.parentalVerified[ch.id]) {
-          showParentalPin(ch.id, () => {
-            selectChannel(ch.id);
-          });
-        } else {
-          selectChannel(ch.id);
-        }
-      });
+      item.addEventListener('click', () => { selectChannel(ch.id); });
 
       list.appendChild(item);
     });
@@ -244,22 +183,6 @@
       $('sidebar').classList.remove('open');
       APP.state.sidebarOpen = false;
     }
-    logWatchHistory(channelId);
-  }
-
-  async function logWatchHistory(channelId) {
-    if (!APP.state.user) return;
-    const ch = APP.state.channels.find(c => c.id === channelId);
-    try {
-      await api('/api/history/last-watched', {
-        method: 'POST',
-        body: JSON.stringify({ channel_id: channelId, channel_name: ch ? ch.name : '' }),
-      });
-      await api('/api/history', {
-        method: 'POST',
-        body: JSON.stringify({ channel_id: channelId, channel_name: ch ? ch.name : '', program_title: '' }),
-      });
-    } catch {}
   }
 
   /* ─── Player ─── */
@@ -422,7 +345,14 @@
       APP.state.volume = video.volume;
       APP.state.muted = video.muted;
       if (volBtn) volBtn.textContent = video.muted || video.volume === 0 ? '\u{1F507}' : video.volume < 0.5 ? '\u{1F509}' : '\u{1F50A}';
+      localStorage.setItem('volume', video.volume);
     });
+
+    const savedVolume = localStorage.getItem('volume');
+    if (savedVolume !== null) {
+      video.volume = parseFloat(savedVolume);
+      if (volSlider) volSlider.value = savedVolume;
+    }
 
     if (progressWrapper) {
       progressWrapper.addEventListener('click', (e) => {
@@ -482,6 +412,31 @@
         if (fsBtn) fsBtn.click();
       });
     }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      const v = $('video');
+      switch (e.key) {
+        case ' ':
+          e.preventDefault();
+          if (v) { if (v.paused) v.play(); else v.pause(); }
+          break;
+        case 'f': case 'F':
+          if (fsBtn) fsBtn.click();
+          break;
+        case 'm': case 'M':
+          if (v) v.muted = !v.muted;
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          if (v) v.volume = Math.min(1, v.volume + 0.1);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          if (v) v.volume = Math.max(0, v.volume - 0.1);
+          break;
+      }
+    });
   }
 
   function updateQualitySelector() {
@@ -611,31 +566,6 @@
     }
   }
 
-  async function checkFavoriteLive() {
-    if (!APP.state.user) return;
-    try {
-      const live = await apiJSON('/api/notifications/favorite-live');
-      live.forEach(ch => {
-        if (Notification.permission === 'granted') {
-          new Notification(ch.name + ' ' + t('channel_live'));
-        }
-      });
-    } catch {}
-  }
-
-  async function checkReminders() {
-    if (!APP.state.user) return;
-    try {
-      const due = await apiJSON('/api/notifications/reminders');
-      due.forEach(d => {
-        showToast(d.title + ' ' + t('program_reminder'));
-        if (Notification.permission === 'granted') {
-          new Notification(d.title + ' ' + t('program_reminder'));
-        }
-      });
-    } catch {}
-  }
-
   /* ─── Modal listeners ─── */
   function setupModalListeners() {
     const epgModal = $('epgModal');
@@ -682,36 +612,8 @@
     }
   }
 
-  /* ─── Parental ─── */
-  function showParentalPin(channelId, callback) {
-    showModal('parentalModal');
-    $('parentalChannelId').value = channelId;
-    $('parentalCallback')._cb = callback;
-    $('parentalError').textContent = '';
-    $('parentalInput').value = '';
-    $('parentalInput').focus();
-  }
-
-  async function submitParentalPin() {
-    const pin = $('parentalInput').value;
-    const channelId = $('parentalChannelId').value;
-    try {
-      await apiJSON('/api/parental/verify', {
-        method: 'POST',
-        body: JSON.stringify({ pin }),
-      });
-      APP.state.parentalVerified[channelId] = true;
-      hideModal('parentalModal');
-      if ($('parentalCallback')._cb) $('parentalCallback')._cb();
-      showToast('Access granted', 'success');
-    } catch (e) {
-      $('parentalError').textContent = 'Invalid PIN';
-    }
-  }
-
   /* ─── Recordings ─── */
   async function fetchRecordings() {
-    if (!APP.state.user) return;
     try {
       APP.state.recordings = await apiJSON('/api/recordings');
       renderRecordings();
@@ -801,35 +703,15 @@
     if (s.primary_color) {
       document.documentElement.style.setProperty('--accent', s.primary_color);
     }
+    if (s.custom_css) {
+      const style = document.createElement('style');
+      style.textContent = s.custom_css;
+      document.head.appendChild(style);
+    }
     if (s.default_language) {
       APP.state.language = s.default_language;
       I18N.setLanguage(s.default_language);
     }
-  }
-
-  /* ─── UI Updates ─── */
-  function updateUI() {
-    const user = APP.state.user;
-    const loginBtn = $('loginBtn');
-    const signupBtn = $('signupBtn');
-    const userMenu = $('userMenu');
-    const userName = $('userName');
-
-    if (user) {
-      if (loginBtn) loginBtn.style.display = 'none';
-      if (signupBtn) signupBtn.style.display = 'none';
-      if (userMenu) userMenu.style.display = 'flex';
-      if (userName) userName.textContent = user.username;
-    } else {
-      if (loginBtn) loginBtn.style.display = 'inline-flex';
-      if (signupBtn) signupBtn.style.display = 'inline-flex';
-      if (userMenu) userMenu.style.display = 'none';
-    }
-
-    const favTab = qs('[data-tab="favorites"]');
-    if (favTab) favTab.style.display = user ? 'block' : 'none';
-
-    fetchFavorites();
   }
 
   /* ─── Hamburger ─── */
@@ -859,64 +741,13 @@
   async function init() {
     await fetchPublicSettings();
 
-    const loginForm = $('loginForm');
-    const signupForm = $('signupForm');
-    const logoutBtn = $('logoutBtn');
-    const profileBtn = $('profileBtn');
-    const showSignupLink = $('showSignup');
-    const showLoginLink = $('showLogin');
-
-    if (loginForm) {
-      loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const err = loginForm.querySelector('.form-error');
-        try {
-          await doLogin(
-            loginForm.querySelector('[name="username"]').value,
-            loginForm.querySelector('[name="password"]').value
-          );
-        } catch (e2) { if (err) err.textContent = e2.message; }
-      });
-    }
-
-    if (signupForm) {
-      signupForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const err = signupForm.querySelector('.form-error');
-        const pw = signupForm.querySelector('[name="password"]').value;
-        const cpw = signupForm.querySelector('[name="confirmPassword"]');
-        if (cpw && pw !== cpw.value) { if (err) err.textContent = 'Passwords do not match'; return; }
-        try {
-          await doSignup(signupForm.querySelector('[name="username"]').value, pw);
-        } catch (e2) { if (err) err.textContent = e2.message; }
-      });
-    }
-
-    if (showSignupLink) {
-      showSignupLink.addEventListener('click', (e) => { e.preventDefault(); hideModal('loginModal'); showModal('signupModal'); });
-    }
-    if (showLoginLink) {
-      showLoginLink.addEventListener('click', (e) => { e.preventDefault(); hideModal('signupModal'); showModal('loginModal'); });
-    }
-
-    if (logoutBtn) logoutBtn.addEventListener('click', doLogout);
-    if (profileBtn) profileBtn.addEventListener('click', () => { showModal('profileModal'); loadProfile(); });
-
-    $('parentalSubmit')?.addEventListener('click', submitParentalPin);
-    $('parentalInput')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitParentalPin(); });
-
     setupHamburger();
     setupSearch();
     setupVideoControls();
     setupTabs();
-
     setupModalListeners();
-    await checkAuth();
-    updateUI();
+
     await fetchChannels();
-    await fetchFavorites();
-    await fetchNowPlaying();
-    await fetchUpNext();
 
     if (APP.state.lastChannelId && APP.state.channels.find(c => c.id === APP.state.lastChannelId)) {
       APP.state.currentChannelId = APP.state.lastChannelId;
@@ -938,70 +769,10 @@
     setInterval(fetchNowPlaying, 30000);
     setInterval(fetchUpNext, 30000);
     setInterval(fetchNotifications, 30000);
-    setInterval(checkFavoriteLive, 30000);
-    setInterval(checkReminders, 60000);
 
     if (Notification.permission === 'default') {
       Notification.requestPermission();
     }
-  }
-
-  function loadProfile() {
-    if (!APP.state.user) return;
-    const container = $('profileContent');
-    if (!container) return;
-    container.innerHTML = `
-      <form id="changePwForm">
-        <div class="form-group">
-          <label>${t('current_password')}</label>
-          <input type="password" name="currentPassword" required minlength="1">
-        </div>
-        <div class="form-group">
-          <label>${t('new_password')}</label>
-          <input type="password" name="newPassword" required minlength="6">
-        </div>
-        <button type="submit" class="btn btn-primary">${t('change_password')}</button>
-        <div class="form-error"></div>
-        <div class="form-success"></div>
-      </form>
-      <hr style="border-color:var(--border);margin:20px 0;">
-      <button id="deleteAccountBtn" class="btn btn-danger">${t('delete_account')}</button>
-    `;
-
-    $('changePwForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const err = $('changePwForm').querySelector('.form-error');
-      const success = $('changePwForm').querySelector('.form-success');
-      try {
-        await apiJSON('/api/users/me/change-password', {
-          method: 'POST',
-          body: JSON.stringify({
-            current_password: $('changePwForm').querySelector('[name="currentPassword"]').value,
-            new_password: $('changePwForm').querySelector('[name="newPassword"]').value,
-          }),
-        });
-        if (success) success.textContent = 'Password changed successfully';
-        if (err) err.textContent = '';
-        $('changePwForm').querySelector('[name="currentPassword"]').value = '';
-        $('changePwForm').querySelector('[name="newPassword"]').value = '';
-      } catch (e2) { if (err) err.textContent = e2.message; }
-    });
-
-    $('deleteAccountBtn').addEventListener('click', async () => {
-      if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
-      const pw = prompt('Enter your password to confirm deletion:');
-      if (!pw) return;
-      try {
-        await apiJSON('/api/users/me/delete', {
-          method: 'POST',
-          body: JSON.stringify({ password: pw }),
-        });
-        APP.state.user = null;
-        hideModal('profileModal');
-        updateUI();
-        showToast('Account deleted', 'success');
-      } catch (e2) { showToast(e2.message, 'error'); }
-    });
   }
 
   if (document.readyState === 'loading') {

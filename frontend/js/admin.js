@@ -5,7 +5,6 @@
   ADMIN.state = {
     channels: [],
     recordings: [],
-    users: [],
     logs: [],
     settings: {},
     analytics: {},
@@ -129,7 +128,6 @@
       case 'channels': fetchChannels(); break;
       case 'epg': fetchEPGChannels(); break;
       case 'recordings': fetchRecordings(); break;
-      case 'users': fetchUsers(); break;
       case 'logs': fetchLogs(); break;
       case 'settings': fetchSettings(); break;
     }
@@ -141,7 +139,6 @@
       const data = await apiJSON('/api/admin/dashboard');
       $('totalChannels').textContent = data.total_channels || 0;
       $('activeStreams').textContent = data.active_streams || 0;
-      $('totalUsers').textContent = data.total_users || 0;
       $('totalRecordings').textContent = data.recordings || 0;
     } catch {}
 
@@ -462,61 +459,6 @@
     } catch (e) { showToast(e.message, 'error'); }
   });
 
-  /* ─── Users ─── */
-  async function fetchUsers() {
-    try {
-      ADMIN.state.users = await apiJSON('/api/admin/users');
-      renderUsers();
-    } catch {}
-  }
-
-  function renderUsers() {
-    const list = $('usersList');
-    if (!list) return;
-    if (ADMIN.state.users.length === 0) {
-      list.innerHTML = '<div class="empty-state">No users yet</div>';
-      return;
-    }
-    list.innerHTML = '';
-    ADMIN.state.users.forEach(u => {
-      const item = document.createElement('div');
-      item.style.cssText = 'padding:10px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;';
-      item.innerHTML = `
-        <div>
-          <strong>${escapeHtml(u.username)}</strong>
-          <span class="badge ${u.tier === 'premium' ? 'badge-premium' : 'badge-basic'}">${u.tier}</span>
-          ${u.banned ? '<span class="badge badge-banned">BANNED</span>' : ''}
-          <div style="font-size:11px;color:var(--text-muted);">
-            Created: ${u.created_at ? u.created_at.slice(0, 10) : 'N/A'} | Last login: ${u.last_login ? u.last_login.slice(0, 16) : 'Never'}
-          </div>
-        </div>
-        <div style="display:flex;gap:4px;">
-          ${u.banned
-            ? '<button class="btn btn-xs btn-secondary" onclick="ADMIN.unbanUser(\'' + u.username + '\')">Unban</button>'
-            : '<button class="btn btn-xs btn-danger" onclick="ADMIN.banUser(\'' + u.username + '\')">Ban</button>'
-          }
-          <button class="btn btn-xs btn-secondary" onclick="ADMIN.setTier(\'' + u.username + '\')">Tier</button>
-        </div>
-      `;
-      list.appendChild(item);
-    });
-  }
-
-  ADMIN.banUser = async function (username) {
-    if (!confirm('Ban ' + username + '?')) return;
-    try { await apiJSON('/api/admin/users/' + username + '/ban'); showToast(username + ' banned', 'success'); fetchUsers(); } catch (e) { showToast(e.message, 'error'); }
-  };
-
-  ADMIN.unbanUser = async function (username) {
-    try { await apiJSON('/api/admin/users/' + username + '/unban'); showToast(username + ' unbanned', 'success'); fetchUsers(); } catch (e) { showToast(e.message, 'error'); }
-  };
-
-  ADMIN.setTier = async function (username) {
-    const tier = prompt('Set tier (basic/premium):', 'basic');
-    if (!tier || !['basic', 'premium'].includes(tier)) return;
-    try { await apiJSON('/api/admin/users/' + username + '/tier', { method: 'POST', body: JSON.stringify({ tier }) }); showToast('Tier set to ' + tier, 'success'); fetchUsers(); } catch (e) { showToast(e.message, 'error'); }
-  };
-
   /* ─── Logs ─── */
   async function fetchLogs() {
     try {
@@ -606,7 +548,6 @@
     fetchOverview();
     fetchChannels();
     fetchRecordings();
-    fetchUsers();
     fetchLogs();
     fetchSettings();
     fetchEPGChannels();

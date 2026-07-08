@@ -1,33 +1,10 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List
-from datetime import datetime
-import re
+from typing import Optional
 
 
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=50)
     password: str = Field(min_length=1, max_length=100)
-
-
-class SignupRequest(BaseModel):
-    username: str = Field(min_length=3, max_length=30)
-    password: str = Field(min_length=6, max_length=100)
-
-    @field_validator('username')
-    @classmethod
-    def validate_username(cls, v: str) -> str:
-        if not re.match(r'^[a-zA-Z0-9_]+$', v):
-            raise ValueError('Username must be alphanumeric + underscore')
-        return v
-
-
-class ChangePasswordRequest(BaseModel):
-    current_password: str = Field(min_length=1)
-    new_password: str = Field(min_length=6, max_length=100)
-
-
-class DeleteAccountRequest(BaseModel):
-    password: str = Field(min_length=1)
 
 
 class CreateChannelRequest(BaseModel):
@@ -70,10 +47,6 @@ class ProgramUpdate(BaseModel):
     recurring_time: Optional[str] = None
 
 
-class ReminderCreate(BaseModel):
-    program_id: str
-
-
 class NotificationCreate(BaseModel):
     message: str = Field(min_length=1, max_length=500)
     channel_id: Optional[str] = None
@@ -88,23 +61,10 @@ class SettingsUpdate(BaseModel):
     logo_url: Optional[str] = None
 
 
-class ParentalPinRequest(BaseModel):
-    pin: str = Field(min_length=4, max_length=10)
-
-
-class SetParentalPinRequest(BaseModel):
-    pin: str = Field(min_length=4, max_length=10)
-    current_password: str = Field(min_length=1)
-
-
 class RecordingsUpdateRequest(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     published: Optional[bool] = None
-
-
-class UserTierUpdate(BaseModel):
-    tier: str = Field(pattern=r'^(basic|premium)$')
 
 
 class SubtitleUploadResponse(BaseModel):

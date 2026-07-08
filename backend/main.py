@@ -26,19 +26,16 @@ import sys
 from typing import Optional
 
 from routers import (
-    auth_users,
     admin_auth,
     channels,
     epg,
     recordings,
-    favorites,
     notifications,
     search,
     admin_dashboard,
     analytics,
     settings as settings_router,
     webhook,
-    parental,
 )
 
 logging.basicConfig(
@@ -65,7 +62,6 @@ class Settings(BaseSettings):
     KV_REST_API_TOKEN: Optional[str] = None
     BLOB_READ_WRITE_TOKEN: Optional[str] = None
     MAX_LOGIN_ATTEMPTS: int = 5
-    SIGNUP_RATE_LIMIT: str = '10/hour'
 
     @field_validator('JWT_SECRET')
     @classmethod
@@ -129,29 +125,24 @@ config = {
     'JWT_EXPIRY_MINUTES': settings.JWT_EXPIRY_MINUTES,
     'ENVIRONMENT': settings.ENVIRONMENT,
     'MAX_LOGIN_ATTEMPTS': settings.MAX_LOGIN_ATTEMPTS,
-    'SIGNUP_RATE_LIMIT': settings.SIGNUP_RATE_LIMIT,
 }
 
-auth_users.configure(config)
 admin_auth.configure(config)
 webhook.configure(settings.MUX_WEBHOOK_SECRET)
 
 import os
 os.environ['BLOB_READ_WRITE_TOKEN'] = settings.BLOB_READ_WRITE_TOKEN or ''
 
-app.include_router(auth_users.router)
 app.include_router(admin_auth.router)
 app.include_router(channels.router)
 app.include_router(epg.router)
 app.include_router(recordings.router)
-app.include_router(favorites.router)
 app.include_router(notifications.router)
 app.include_router(search.router)
 app.include_router(admin_dashboard.router)
 app.include_router(analytics.router)
 app.include_router(settings_router.router)
 app.include_router(webhook.router)
-app.include_router(parental.router)
 
 
 @app.get('/api/health')

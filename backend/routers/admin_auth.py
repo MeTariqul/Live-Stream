@@ -35,7 +35,7 @@ def create_admin_token() -> str:
 
 
 async def get_current_admin(request: Request) -> dict:
-    token = request.cookies.get('admin_token') or request.cookies.get('auth_token')
+    token = request.cookies.get('admin_token')
     if not token:
         raise HTTPException(status_code=401, detail='Not authenticated')
     try:

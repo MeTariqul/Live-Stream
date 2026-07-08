@@ -38,7 +38,6 @@
       <button class="admin-nav-item" data-nav="channels">Channels</button>
       <button class="admin-nav-item" data-nav="epg">EPG Manager</button>
       <button class="admin-nav-item" data-nav="recordings">Recordings</button>
-      <button class="admin-nav-item" data-nav="users">Users</button>
       <button class="admin-nav-item" data-nav="logs">System Logs</button>
       <button class="admin-nav-item" data-nav="settings">Settings</button>
       <div style="flex:1;"></div>
@@ -57,7 +56,6 @@
           <div class="stats-grid">
             <div class="stat-card"><div class="stat-value" id="totalChannels">0</div><div class="stat-label">Channels</div></div>
             <div class="stat-card"><div class="stat-value" id="activeStreams">0</div><div class="stat-label">Active Streams</div></div>
-            <div class="stat-card"><div class="stat-value" id="totalUsers">0</div><div class="stat-label">Total Users</div></div>
             <div class="stat-card"><div class="stat-value" id="totalRecordings">0</div><div class="stat-label">Recordings</div></div>
           </div>
           <div style="font-size:12px;color:var(--text-muted);">Data refreshes automatically every 15 seconds.</div>
@@ -112,11 +110,6 @@
             <button class="btn btn-secondary" id="syncRecordingsBtn">Sync from Mux</button>
           </div>
           <div id="recordingsList"></div>
-        </div>
-
-        <!-- Users Tab -->
-        <div class="tab-content" id="usersTab">
-          <div id="usersList"></div>
         </div>
 
         <!-- Logs Tab -->

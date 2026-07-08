@@ -11,7 +11,7 @@ from mux_client import create_live_stream, delete_live_stream, get_live_stream
 from blob_client import upload_file
 from models import CreateChannelRequest, UpdateChannelRequest
 from routers.admin_auth import get_current_admin
-from routers.auth_users import get_current_user
+
 
 logger = logging.getLogger('tv-backend')
 

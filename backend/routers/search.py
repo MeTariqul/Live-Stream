@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 
 from kv_client import kv_get_json
-from routers.auth_users import get_current_user
+
 
 logger = logging.getLogger('tv-backend')
 

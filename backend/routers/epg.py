@@ -2,15 +2,14 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 import json
 import logging
-from datetime import timezone,  datetime, timedelta
+from datetime import timezone, datetime, timedelta
 from uuid import uuid4
 from typing import Optional
 
 from kv_client import kv_get_json, kv_set_json, kv_delete
 from blob_client import upload_file
-from models import ProgramCreate, ProgramUpdate, ReminderCreate
+from models import ProgramCreate, ProgramUpdate
 from routers.admin_auth import get_current_admin
-from routers.auth_users import get_current_user
 
 logger = logging.getLogger('tv-backend')
 
@@ -208,32 +207,6 @@ async def get_epg_grid(date: Optional[str] = None):
         if channel_progs:
             results[channel_id] = channel_progs
     return JSONResponse(results)
-
-
-@router.post('/epg/reminder')
-async def set_reminder(body: ReminderCreate, request: Request, current_user: dict = Depends(get_current_user)):
-    username = current_user.get('sub')
-    reminders = await kv_get_json(f'reminders:{username}') or []
-    if body.program_id not in reminders:
-        reminders.append(body.program_id)
-        await kv_set_json(f'reminders:{username}', reminders, ex=86400 * 30)
-    return JSONResponse({'success': True})
-
-
-@router.delete('/epg/reminder/{program_id}')
-async def remove_reminder(program_id: str, request: Request, current_user: dict = Depends(get_current_user)):
-    username = current_user.get('sub')
-    reminders = await kv_get_json(f'reminders:{username}') or []
-    reminders = [r for r in reminders if r != program_id]
-    await kv_set_json(f'reminders:{username}', reminders, ex=86400 * 30)
-    return JSONResponse({'success': True})
-
-
-@router.get('/epg/reminders')
-async def get_reminders(request: Request, current_user: dict = Depends(get_current_user)):
-    username = current_user.get('sub')
-    reminders = await kv_get_json(f'reminders:{username}') or []
-    return JSONResponse(reminders)
 
 
 @router.post('/admin/epg/{channel_id}/{program_id}/subtitles')

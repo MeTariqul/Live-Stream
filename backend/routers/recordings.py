@@ -10,7 +10,7 @@ from mux_client import list_assets, get_asset, delete_asset, create_asset_downlo
 from blob_client import upload_from_url, delete_file
 from models import RecordingsUpdateRequest
 from routers.admin_auth import get_current_admin
-from routers.auth_users import get_current_user
+
 
 logger = logging.getLogger('tv-backend')
 
@@ -159,7 +159,7 @@ async def admin_delete_recording(recording_id: str, current_user: dict = Depends
 
 
 @router.get('/recordings')
-async def get_public_recordings(request: Request, current_user: dict = Depends(get_current_user)):
+async def get_public_recordings():
     recordings = await _get_recordings()
     public = []
     for rec in recordings:

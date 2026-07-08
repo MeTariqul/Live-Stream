@@ -25,13 +25,6 @@
       </div>
       <div class="header-right">
         <button class="btn btn-sm btn-ghost" onclick="window.location.href='privacy.html'">Privacy</button>
-        <button class="btn btn-sm btn-ghost" id="loginBtn" onclick="showModal('loginModal')">Login</button>
-        <button class="btn btn-sm btn-outline" id="signupBtn" onclick="showModal('signupModal')">Sign Up</button>
-        <div class="header-right" id="userMenu" style="display:none;">
-          <span id="userName" style="font-size:13px;color:var(--text-secondary);"></span>
-          <button class="btn btn-sm btn-ghost" id="profileBtn">Profile</button>
-          <button class="btn btn-sm btn-ghost" id="logoutBtn">Logout</button>
-        </div>
       </div>
     </header>
 
@@ -47,7 +40,6 @@
         <div class="sidebar-filters">
           <button class="filter-btn active" id="channelFilter" value="all" onclick="selectFilter('all')">All</button>
           <button class="filter-btn" id="filterLive" value="live" onclick="selectFilter('live')">Live</button>
-          <button class="filter-btn" id="filterFav" value="favorites" onclick="selectFilter('favorites')">Favorites</button>
           <button class="filter-btn" id="filterEpg" onclick="showModal('epgModal')">EPG</button>
           <button class="filter-btn" id="filterRecordings" onclick="showModal('recordingsModal')">VOD</button>
         </div>
@@ -103,79 +95,6 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Login Modal -->
-  <div class="modal-overlay" id="loginModal">
-    <div class="modal" style="position:relative;">
-      <button class="modal-close" onclick="hideModal('loginModal')">&times;</button>
-      <h2>Login</h2>
-      <form id="loginForm">
-        <div class="form-group">
-          <label>Username</label>
-          <input type="text" name="username" required autocomplete="username" />
-        </div>
-        <div class="form-group">
-          <label>Password</label>
-          <input type="password" name="password" required autocomplete="current-password" />
-        </div>
-        <div class="form-error"></div>
-        <button type="submit" class="btn btn-primary">Login</button>
-      </form>
-      <div class="form-footer">Don't have an account? <a id="showSignup">Sign Up</a></div>
-    </div>
-  </div>
-
-  <!-- Signup Modal -->
-  <div class="modal-overlay" id="signupModal">
-    <div class="modal" style="position:relative;">
-      <button class="modal-close" onclick="hideModal('signupModal')">&times;</button>
-      <h2>Sign Up</h2>
-      <form id="signupForm">
-        <div class="form-group">
-          <label>Username (alphanumeric, 3-30 chars)</label>
-          <input type="text" name="username" required minlength="3" maxlength="30" pattern="^[a-zA-Z0-9_]+$" autocomplete="username" />
-        </div>
-        <div class="form-group">
-          <label>Password (min 6 chars)</label>
-          <input type="password" name="password" required minlength="6" autocomplete="new-password" />
-        </div>
-        <div class="form-group">
-          <label>Confirm Password</label>
-          <input type="password" name="confirmPassword" required minlength="6" autocomplete="new-password" />
-        </div>
-        <div class="form-error"></div>
-        <button type="submit" class="btn btn-primary">Create Account</button>
-      </form>
-      <div class="form-footer">Already have an account? <a id="showLogin">Login</a></div>
-    </div>
-  </div>
-
-  <!-- Profile Modal -->
-  <div class="modal-overlay" id="profileModal">
-    <div class="modal" style="position:relative;">
-      <button class="modal-close" onclick="hideModal('profileModal')">&times;</button>
-      <h2>Profile</h2>
-      <div id="profileContent"></div>
-    </div>
-  </div>
-
-  <!-- Parental PIN Modal -->
-  <div class="modal-overlay" id="parentalModal">
-    <div class="modal" style="position:relative;">
-      <button class="modal-close" onclick="hideModal('parentalModal')">&times;</button>
-      <h2>PIN Required</h2>
-      <p style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:16px;">Enter your parental control PIN to access this content</p>
-      <input type="hidden" id="parentalChannelId" />
-      <div id="parentalCallback" style="display:none;"></div>
-      <div class="form-group">
-        <label>PIN</label>
-        <input type="password" id="parentalInput" maxlength="10" inputmode="numeric" pattern="[0-9]*" autocomplete="off" />
-      </div>
-      <div class="form-error" id="parentalError"></div>
-      <button class="btn btn-primary" id="parentalSubmit">Submit</button>
-      <div class="form-footer"><a onclick="hideModal('parentalModal')">Cancel</a></div>
     </div>
   </div>
 

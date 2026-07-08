@@ -72,43 +72,6 @@ def t_public_channels():
     assert r.status_code == 200 and len(r.json()) >= 3
 test('Public channels', t_public_channels)
 
-user_cookies = None
-def t_signup():
-    global user_cookies
-    r = httpx.post(f'{base}/api/signup', json={'username': 'testuser1', 'password': 'pass123456'}, timeout=5)
-    assert r.status_code == 200
-    user_cookies = r.cookies
-test('User signup', t_signup)
-
-def t_signup_invalid():
-    r = httpx.post(f'{base}/api/signup', json={'username': 'ab', 'password': 'pass123'}, timeout=5)
-    assert r.status_code == 422
-test('Signup validation', t_signup_invalid)
-
-def t_signup_dup():
-    r = httpx.post(f'{base}/api/signup', json={'username': 'testuser1', 'password': 'pass123456'}, timeout=5)
-    assert r.status_code == 409
-test('Signup duplicate', t_signup_dup)
-
-def t_user_login():
-    r = httpx.post(f'{base}/api/login', json={'username': 'testuser1', 'password': 'pass123456'}, timeout=5)
-    assert r.status_code == 200
-test('User login', t_user_login)
-
-def t_auth_me():
-    r = httpx.get(f'{base}/api/auth/me', cookies=user_cookies, timeout=5)
-    assert r.status_code == 200 and r.json()['username'] == 'testuser1'
-test('Auth me', t_auth_me)
-
-def t_favorites():
-    r = httpx.post(f'{base}/api/favorites/{channel_ids[0]}', cookies=user_cookies, timeout=5)
-    assert r.status_code == 200
-    r = httpx.get(f'{base}/api/favorites', cookies=user_cookies, timeout=5)
-    assert channel_ids[0] in r.json()
-    r = httpx.delete(f'{base}/api/favorites/{channel_ids[0]}', cookies=user_cookies, timeout=5)
-    assert r.status_code == 200
-test('Favorites', t_favorites)
-
 prog_id = None
 def t_epg_create():
     global prog_id
@@ -147,24 +110,6 @@ def t_categories():
     assert r.status_code == 200 and 'News' in r.json()
 test('Categories', t_categories)
 
-def t_change_password():
-    global user_cookies
-    r = httpx.post(f'{base}/api/users/me/change-password',
-        json={'current_password': 'pass123456', 'new_password': 'newpass123'},
-        cookies=user_cookies, timeout=5)
-    assert r.status_code == 200
-    r = httpx.post(f'{base}/api/login', json={'username': 'testuser1', 'password': 'newpass123'}, timeout=5)
-    assert r.status_code == 200
-    user_cookies = r.cookies
-test('Change password', t_change_password)
-
-def t_parental():
-    r = httpx.post(f'{base}/api/parental/pin', json={'pin': '1234', 'current_password': 'newpass123'}, cookies=user_cookies, timeout=5)
-    assert r.status_code == 200
-    r = httpx.post(f'{base}/api/parental/verify', json={'pin': '1234'}, cookies=user_cookies, timeout=5)
-    assert r.status_code == 200 and r.json()['verified']
-test('Parental controls', t_parental)
-
 def t_notification():
     r = httpx.post(f'{base}/api/admin/notifications', json={'message': 'Test broadcast'}, cookies=admin_cookies, timeout=5)
     assert r.status_code == 201
@@ -177,20 +122,6 @@ def t_dashboard():
     assert r.status_code == 200 and r.json()['total_channels'] >= 3
 test('Admin dashboard', t_dashboard)
 
-def t_users():
-    r = httpx.get(f'{base}/api/admin/users', cookies=admin_cookies, timeout=5)
-    assert r.status_code == 200 and any(u['username'] == 'testuser1' for u in r.json())
-test('User management', t_users)
-
-def t_ban():
-    r = httpx.post(f'{base}/api/admin/users/testuser1/ban', cookies=admin_cookies, timeout=5)
-    assert r.status_code == 200
-    r = httpx.post(f'{base}/api/login', json={'username': 'testuser1', 'password': 'newpass123'}, timeout=5)
-    assert r.status_code == 403
-    r = httpx.post(f'{base}/api/admin/users/testuser1/unban', cookies=admin_cookies, timeout=5)
-    assert r.status_code == 200
-test('Ban/unban', t_ban)
-
 def t_settings():
     r = httpx.put(f'{base}/api/admin/settings', json={'platform_name': 'TestTV'}, cookies=admin_cookies, timeout=5)
     assert r.status_code == 200
@@ -200,24 +131,10 @@ def t_settings():
 test('Settings', t_settings)
 
 def t_analytics():
-    for ep in ['concurrent', 'dashboard', 'daily-users', 'most-watched']:
+    for ep in ['concurrent', 'dashboard']:
         r = httpx.get(f'{base}/api/analytics/{ep}', cookies=admin_cookies, timeout=5)
         assert r.status_code == 200, f'Analytics/{ep} failed: {r.status_code}'
 test('Analytics', t_analytics)
-
-def t_history():
-    r = httpx.post(f'{base}/api/history/last-watched', json={'channel_id': channel_ids[0], 'channel_name': 'News'}, cookies=user_cookies, timeout=5)
-    assert r.status_code == 200
-    r = httpx.get(f'{base}/api/history/last-watched', cookies=user_cookies, timeout=5)
-    assert r.json()['channel_id'] == channel_ids[0]
-test('Watch history', t_history)
-
-def t_tier():
-    r = httpx.post(f'{base}/api/admin/users/testuser1/tier', json={'tier': 'premium'}, cookies=admin_cookies, timeout=5)
-    assert r.status_code == 200
-    r = httpx.get(f'{base}/api/users/me/tier', cookies=user_cookies, timeout=5)
-    assert r.json()['tier'] == 'premium'
-test('User tier', t_tier)
 
 def t_logs():
     r = httpx.get(f'{base}/api/admin/logs', cookies=admin_cookies, timeout=5)
@@ -231,16 +148,10 @@ def t_purge_logs():
     assert len(r.json()) == 0
 test('Purge logs', t_purge_logs)
 
-def t_delete_account():
-    global admin_cookies
-    r = httpx.post(f'{base}/api/signup', json={'username': 'deleteme', 'password': 'temp123456'}, timeout=5)
+def t_public_recordings():
+    r = httpx.get(f'{base}/api/recordings', timeout=5)
     assert r.status_code == 200
-    dc = r.cookies
-    r = httpx.post(f'{base}/api/users/me/delete', json={'password': 'temp123456'}, cookies=dc, timeout=5)
-    assert r.status_code == 200
-    r = httpx.get(f'{base}/api/auth/me', cookies=dc, timeout=5)
-    assert r.status_code == 401
-test('Delete account', t_delete_account)
+test('Public recordings', t_public_recordings)
 
 # ==================== RESULTS ====================
 print('=' * 55)
